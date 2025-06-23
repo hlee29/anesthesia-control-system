@@ -1,0 +1,17 @@
+* text=auto
+
+# .m files are matlab
+*.m linguist-language=MATLAB
+
+# register binaries
+*.m text eol=lf
+*.mat binary
+*.fig binary
+*.mdl text eol=lf
+*.slx binary
+*.mex* binary
+
+# merge strategy
+*.fig -merge
+*.mat -merge
+*.slx -merge
