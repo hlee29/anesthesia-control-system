@@ -14,6 +14,7 @@ classdef PropofolSystem
         ceMin;              % site concentration lower bound
         Eop;                % operating (desired) site effect
         a1; a2;             % exponential cbf coefficients
+        w1; w2;             % weights for smoothing
         uMin;               % current minimum input
 
         % observer (tbd)
@@ -33,7 +34,7 @@ classdef PropofolSystem
 
         % simulation history
         tHist; EHist; xHist; uHist; uMinHist;
-        hHist; hDotHist; 
+        ceDotHist; 
 
     end
 
@@ -44,7 +45,7 @@ classdef PropofolSystem
         function sys = PropofolSystem( ...
                 k10, k12, k13, k21, k31, ke0, V1, ...
                 E0, Emin, ce50, gamma, ...
-                a1, a2)
+                a1, a2, w1, w2)
 
             % initialize system parameters
             sys.k10 = k10; sys.k12 = k12; sys.k13 = k13; 
@@ -52,6 +53,7 @@ classdef PropofolSystem
             sys.V1 = V1; sys.E0 = E0; sys.Emin = Emin; 
             sys.ce50 = ce50; sys.gamma = gamma;
             sys.a1 = a1; sys.a2 = a2; sys.uMin = 0; 
+            sys.w1 = w1; sys.w2 = w2; 
 
             % initialize system matrices and state vectors 
             sys.A = [-k10 - k12 - k13     k12     k13     0
@@ -70,13 +72,12 @@ classdef PropofolSystem
             sys.tHist = zeros(1,1);
             sys.xHist = zeros(4, 1); sys.EHist = zeros(1,1); 
             sys.uHist = zeros(1,1); sys.uMinHist = zeros(1,1);
-            sys.hHist = zeros(1, 1); sys.hDotHist = zeros(1, 1);
 
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        function sys = computeControl(sys)
+        function sys = computeControl(sys, i)
 
             % compute current lower bound of input
             sys.uMin = (sys.V1/sys.ke0)*...
@@ -87,7 +88,11 @@ classdef PropofolSystem
                 sys.a1 * sys.a2 * (sys.x(4) - sys.ceMin));
 
             % compute control input with switching control policy
-            if (sys.uMin > 0)
+            % and weighted smoother
+
+            parabolaRoot = sys.uHist(i-1) * (sys.w2/(sys.w1 + sys.w2));
+
+            if (sys.uMin > parabolaRoot)
                 sys.u = sys.uMin;
             else
                 sys.u = 0;
@@ -108,7 +113,7 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        function sys = step(sys, dt)
+        function sys = step(sys, dt, i)
 
             % compute output ce (in this case a state variable)
 
@@ -117,7 +122,7 @@ classdef PropofolSystem
             % observer (tbd)
 
             % compute and apply control input
-            sys = sys.computeControl(); 
+            sys = sys.computeControl(i); 
 
             % plant update
             sys.x = sys.x + dt*(sys.A * sys.x + sys.B * sys.u);
@@ -130,7 +135,7 @@ classdef PropofolSystem
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
         function [sys, tHist, xHist, EHist, uHist, uMinHist, ...
-                hHist, hDotHist] = simulate(sys, ...
+                ceDotHist] = simulate(sys, ...
                 x0, tStart, tEnd, nTimes)
 
             % compute discrete time interval
@@ -140,18 +145,19 @@ classdef PropofolSystem
             sys.tHist = zeros(1, nTimes);
             sys.xHist = zeros(4, nTimes); sys.EHist = zeros(1, nTimes); 
             sys.uHist = zeros(1, nTimes); sys.uMinHist = zeros(1, nTimes);
-            sys.hHist = zeros(1, nTimes); sys.hDotHist = zeros(1, nTimes);
+            sys.ceDotHist = zeros(1, nTimes);
 
             % set and log initial conditions
             sys.x = x0; 
             sys.u = 0;
             sys.tHist(1) = tStart;
             sys.xHist(:,1) = x0; 
+            sys.ceDotHist = sys.ke0 * (sys.x(1) - sys.x(4));
 
             for i=2:nTimes
 
                 % time step
-                sys = sys.step(dt);
+                sys = sys.step(dt, i);
 
                 % log
                 sys.tHist(i) = sys.tHist(i-1) + dt;
@@ -159,15 +165,14 @@ classdef PropofolSystem
                 sys.EHist(i) = sys.E;
                 sys.uHist(i) = sys.u;
                 sys.uMinHist(i) = sys.uMin;
-                sys.hHist(i) = sys.x(4) - sys.ceMin;
-                sys.hDotHist(i) = sys.ke0 * (sys.x(1) - sys.x(4));
+                sys.ceDotHist(i) = sys.ke0 * (sys.x(1) - sys.x(4));
 
             end
             
             tHist = sys.tHist; 
             xHist = sys.xHist; EHist = sys.EHist; 
             uHist = sys.uHist; uMinHist = sys.uMinHist;
-            hHist = sys.hHist; hDotHist = sys.hDotHist; 
+            ceDotHist = sys.ceDotHist;
 
         end
 
@@ -187,7 +192,7 @@ classdef PropofolSystem
             end
             plot(ce, curve);
             xlim([0 6]);
-            title('Characteristic propofol effect curve');
+            title('Patient characteristic propofol effect curve');
             xlabel('Effect site propofol concentration (ug/mL)')
             ylabel('Propofol effect (BIS)')
             ax = gca;
@@ -213,41 +218,6 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        function sys = plotConcentrations(sys)
-
-            sys.setPlotSettings();
-
-            % plot state vector vs. time
-            figure()
-            plot(sys.tHist, sys.xHist(1,:), 'g');
-            hold on
-            plot(sys.tHist, sys.xHist(2,:), 'b');
-            plot(sys.tHist, sys.xHist(3,:), 'c');
-            plot(sys.tHist, sys.xHist(4,:), 'r');
-            title('State trajectories in time'); 
-            xlabel('Time (min)');
-            ylabel('Propofol concentration (ug/mL)')
-            legend('Plasma compartment', ...
-                'Fast peripheral compartment', ...
-                'Slow peripheral compartment', ...
-                'Effect site (brain)');
-            ax = gca;
-            ax.TitleFontSizeMultiplier = 1.5;
-            hold off
-
-            % isolate site concentration vs. time
-            figure()
-            plot(sys.tHist, sys.xHist(4,:), 'r');
-            title(['Site propofol concentration (ug/mL)' ...
-                ' vs. time (min)']);
-            hold on
-            yline(sys.ceMin, 'k--', 'lower bound')
-            ax = gca;
-            ax.TitleFontSizeMultiplier = 1.5;
-        end
-
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
         function plotEffect(sys)
 
             sys.setPlotSettings();
@@ -259,12 +229,6 @@ classdef PropofolSystem
             title('Propofol effect (BIS) vs. time (min)');
             ax = gca;
             ax.TitleFontSizeMultiplier = 1.5;
-
-        end
-
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-        function getPhaseData(sys)
 
         end
 
