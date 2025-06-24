@@ -90,9 +90,9 @@ classdef PropofolSystem
             % compute control input with switching control policy
             % and weighted smoother
 
-            parabolaRoot = sys.uHist(i-1) * (sys.w2/(sys.w1 + sys.w2));
+            parabolaMin = sys.uHist(i-1) * (sys.w2/(sys.w1 + sys.w2));
 
-            if (sys.uMin > parabolaRoot)
+            if (sys.uMin > parabolaMin)
                 sys.u = sys.uMin;
             else
                 sys.u = 0;

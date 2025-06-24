@@ -106,7 +106,7 @@ plot(tHist, EHist2, 'LineWidth', 2, 'Color', '#cada54');
 plot(tHist, EHist3, 'LineWidth', 2, 'Color', '#dcd62b');
 plot(tHist, EHist4, 'LineWidth', 2, 'Color', '#dda010');
 plot(tHist, EHist5, 'LineWidth', 2, 'Color', '#dd5510');
-yline(patient.Emin, 'k--', 'lower bound');
+yline(patient.Emin, 'k--', 'lower bound for surgery');
 title('Propofol effect trajectories in time');
 xlabel('Time [min]');
 ylabel('Total propofol effect [decrease in BIS %]');
@@ -118,7 +118,7 @@ plot(tHist, xHist2(4,:), 'LineWidth', 2, 'Color', '#cada54');
 plot(tHist, xHist3(4,:), 'LineWidth', 2, 'Color', '#dcd62b');
 plot(tHist, xHist4(4,:), 'LineWidth', 2, 'Color', '#dda010');
 plot(tHist, xHist5(4,:), 'LineWidth', 2, 'Color', '#dd5510');
-yline(patient.ceMin, 'k--', 'lower bound');
+yline(patient.ceMin, 'k--', 'lower bound for surgery');
 title('Effect site concentration trajectories in time');
 xlabel('Time [min]');
 ylabel('Concentration [ug/mL]');
@@ -153,11 +153,11 @@ grid
 
 % plot barriers
 plot(ceVals, bound, 'k--', 'LineWidth', 1); 
-xline(patient.ceMin, 'k--', 'LineWidth', 1);  % h = 0
+xline(patient.ceMin, 'k--', 'lower bound for surgery', 'LineWidth', 1);  % h = 0
 yline(0, 'k', 'LineWidth', 0.5);  % hDot = 0
 
 
 legend('1st-order safe set', '2nd-order safe set');
-title('Safety phase plane')
+title('Safety phase portrait')
 xlabel('Effect site concentration [ug/mL]')
 ylabel('Effect site concentration time derivative [ug/(mL*s)]')
