@@ -361,22 +361,3 @@ legend('Safe set', 'Failsafe set');
 title('Safety phase portrait (graceful controller)')
 xlabel('Effect site concentration [ug/mL]')
 ylabel('Effect site concentration time derivative [ug/(mL*s)]')
-
-
-% % Test continuous simulator
-% % scenario 1
-% x01 = [patient.ceMin+4; 0; 0; patient.ceMin+2];
-% tHist = zeros(1, nTimes);
-% xHist1 = zeros(4, nTimes); EHist1 = zeros(1, nTimes);
-% uHist1 = zeros(1, nTimes); uMinHist1 = zeros(1, nTimes);
-% ceDotHist1 = zeros(1, nTimes);
-% [patient, tHist, tHistContinuous, xHist1, EHist1, uHist1, uMinHist1, ...
-%     ceDotHist1] = patient.simulateContinuous(graceful, x01, tStart, tEnd, nTimes);
-% 
-% % phase
-% figure()
-% hold on
-% xlim([-10 10]); ylim([-10 10]);
-% plot(xHist1(4,:), ceDotHist1, 'LineWidth', 2, 'Color', '#66da54');
-% plot(x01(4,1), patient.ke0 * (x01(1,1)-x01(4,1)), 'Color', '#66da54', 'Marker', '.', 'MarkerSize', 20);
-% title("Test continuous");

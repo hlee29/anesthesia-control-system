@@ -45,9 +45,7 @@ classdef PropofolSystem
 
     methods
 
-        function xDot = plant(sys, t, x, u)
-            xDot = sys.A * x + sys.B * u; 
-        end
+        % constructor 
 
         function sys = PropofolSystem( ...
                 k10, k12, k13, k21, k31, ke0, V1, ...
@@ -87,6 +85,17 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+        % plant model for ode45 integrand
+        
+        function xDot = plant(sys, t, x, u)
+        
+            xDot = sys.A * x + sys.B * u; 
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        % exponential controller with linear constraint
+
         function sys = computeExponentialControl(sys, i)
 
             % compute current lower bound of input
@@ -111,6 +120,8 @@ classdef PropofolSystem
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        % graceful controller with nonlinear constraint
 
         function sys = computeGracefulControl(sys, i)
 
@@ -142,6 +153,9 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+        % update the e-max site effect as a function of current effect site
+        % concentration
+
         function sys = updateSiteEffect(sys)
 
             % compute current site effect
@@ -152,6 +166,8 @@ classdef PropofolSystem
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        % advance discrete simulation by one step
 
         function sys = discreteStep(sys, dt, i, graceful)
 
@@ -178,6 +194,8 @@ classdef PropofolSystem
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        % simulate a discrete plant and discrete controller 
 
         function [sys, tHist, xHist, EHist, uHist, uMinHist, ...
                 ceDotHist] = simulateDiscrete(sys, graceful,...
@@ -223,6 +241,8 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+        % advance continuous simulation by one step
+
         function sys = continuousStep(sys, i, t0, dt, graceful)
 
             % compute output ce (in this case a state variable)
@@ -250,6 +270,8 @@ classdef PropofolSystem
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        % simulate continuous plant and discrete controller
 
         function [sys, tHist, tHistContinuous, xHist, EHist, uHist, ...
                 uMinHist, ceDotHist] = simulateContinuous(sys, ...
@@ -299,7 +321,9 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        
+        % plot the characteristic e-max vs. effect site concentration
+        % curve of this system (patient)
+
         function plotCharacteristicCurve(sys)
 
             sys.setPlotSettings();     
@@ -317,38 +341,6 @@ classdef PropofolSystem
             title('Patient characteristic propofol effect curve');
             xlabel('Effect site propofol concentration (ug/mL)')
             ylabel('Propofol effect (BIS)')
-            ax = gca;
-            ax.TitleFontSizeMultiplier = 1.5;
-
-        end
-
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-        function plotInputs(sys)
-
-            sys.setPlotSettings();               
-
-            % plot input and input bound history vs. time
-            figure()
-            plot(sys.tHist, sys.uHist, 'k'); 
-            hold on;
-            plot(sys.tHist, sys.uMinHist, 'r');
-            legend('Infusion rate', ...
-                'Infusion rate lower bound');
-
-        end
-
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-        function plotEffect(sys)
-
-            sys.setPlotSettings();
-
-            % plot propofol effect vs. time
-            figure()
-            plot(sys.tHist, sys.EHist);
-            yline(sys.Emin, 'k--', 'lower bound')
-            title('Propofol effect (BIS) vs. time (min)');
             ax = gca;
             ax.TitleFontSizeMultiplier = 1.5;
 
