@@ -10,12 +10,15 @@ classdef PropofolSystem
         u;                  % current input (mg/mL*s)
         E;                  % current site effect (BIS)
 
-        % optimal controller
+        % exponential controller settings
         ceMin;              % site concentration lower bound
         Eop;                % operating (desired) site effect
         a1; a2;             % exponential cbf coefficients
         w1; w2;             % weights for smoothing
         uMin;               % current minimum input
+
+        % graceful controller settings
+        ceG; delta; z; w; 
 
         % observer (tbd)
 
@@ -34,7 +37,7 @@ classdef PropofolSystem
 
         % simulation history
         tHist; EHist; xHist; uHist; uMinHist;
-        ceDotHist; 
+        ceDotHist; tHistContinuous; % denser time vector for ode45
 
     end
 
@@ -42,10 +45,15 @@ classdef PropofolSystem
 
     methods
 
+        function xDot = plant(sys, t, x, u)
+            xDot = sys.A * x + sys.B * u; 
+        end
+
         function sys = PropofolSystem( ...
                 k10, k12, k13, k21, k31, ke0, V1, ...
                 E0, Emin, ce50, gamma, ...
-                a1, a2, w1, w2)
+                a1, a2, w1, w2, ...
+                delta, z, w)
 
             % initialize system parameters
             sys.k10 = k10; sys.k12 = k12; sys.k13 = k13; 
@@ -54,9 +62,10 @@ classdef PropofolSystem
             sys.ce50 = ce50; sys.gamma = gamma;
             sys.a1 = a1; sys.a2 = a2; sys.uMin = 0; 
             sys.w1 = w1; sys.w2 = w2; 
+            sys.delta = delta; sys.z = z; sys.w = w; 
 
             % initialize system matrices and state vectors 
-            sys.A = [-k10 - k12 - k13     k12     k13     0
+            sys.A = [-k10 - k12 - k13     k12     k13       0
                      k21                   -k21     0       0 
                      k31                    0      -k31     0 
                      ke0                    0       0      -ke0];
@@ -67,6 +76,7 @@ classdef PropofolSystem
             % set lower bound of effect site concentration
             sys.Emin = Emin; 
             sys.ceMin = ce50 * ((E0-Emin)/Emin)^(1/gamma);
+            sys.ceG = sys.ceMin + sys.delta;
 
             % initialize rows of simulation history vectors
             sys.tHist = zeros(1,1);
@@ -77,7 +87,7 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        function sys = computeControl(sys, i)
+        function sys = computeExponentialControl(sys, i)
 
             % compute current lower bound of input
             sys.uMin = (sys.V1/sys.ke0)*...
@@ -86,6 +96,36 @@ classdef PropofolSystem
                 sys.ke0 * sys.k13 * (sys.x(3) - sys.x(1)) - ...
                 (sys.a1 + sys.a2) * (sys.ke0 * (sys.x(1) - sys.x(4))) - ...
                 sys.a1 * sys.a2 * (sys.x(4) - sys.ceMin));
+
+            % compute control input with switching control policy
+            % and weighted smoother
+
+            parabolaMin = sys.uHist(i-1) * (sys.w2/(sys.w1 + sys.w2));
+
+            if (sys.uMin > parabolaMin)
+                sys.u = sys.uMin;
+            else
+                sys.u = 0;
+            end
+
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        function sys = computeGracefulControl(sys, i)
+
+            hg = (sys.x(4)-sys.ceG)/(sys.ceG - sys.ceMin);
+            hgDot = sys.ke0 * (sys.x(1)-sys.x(4))/(sys.ceG-sys.ceMin);
+
+            % compute current lower bound of input
+            sys.uMin = ...
+                sys.x(1) * sys.V1 * (sys.k10 + sys.k12 + sys.k13 ...
+                    + sys.ke0)...
+              - sys.x(2) * sys.V1 * sys.k12...
+              - sys.x(3) * sys.V1 * sys.k13...
+              - sys.x(4) * sys.V1 * sys.ke0...
+              - sys.V1 * ((sys.ceG-sys.ceMin)/sys.ke0) * ...
+                ((2 * sys.w * sys.z * hgDot) + sys.w^2 * (hg / (hg + 1)));
 
             % compute control input with switching control policy
             % and weighted smoother
@@ -113,7 +153,7 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        function sys = step(sys, dt, i)
+        function sys = discreteStep(sys, dt, i, graceful)
 
             % compute output ce (in this case a state variable)
 
@@ -122,10 +162,15 @@ classdef PropofolSystem
             % observer (tbd)
 
             % compute and apply control input
-            sys = sys.computeControl(i); 
+            if (graceful == true)
+                sys = sys.computeGracefulControl(i); 
+            else
+                sys = sys.computeExponentialControl(i);
+            end
 
             % plant update
             sys.x = sys.x + dt*(sys.A * sys.x + sys.B * sys.u);
+            
 
             % site effect update
             sys = sys.updateSiteEffect();
@@ -135,7 +180,7 @@ classdef PropofolSystem
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
         function [sys, tHist, xHist, EHist, uHist, uMinHist, ...
-                ceDotHist] = simulate(sys, ...
+                ceDotHist] = simulateDiscrete(sys, graceful,...
                 x0, tStart, tEnd, nTimes)
 
             % compute discrete time interval
@@ -157,7 +202,7 @@ classdef PropofolSystem
             for i=2:nTimes
 
                 % time step
-                sys = sys.step(dt, i);
+                sys = sys.discreteStep(dt, i, graceful);
 
                 % log
                 sys.tHist(i) = sys.tHist(i-1) + dt;
@@ -178,6 +223,83 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+        function sys = continuousStep(sys, i, t0, dt, graceful)
+
+            % compute output ce (in this case a state variable)
+
+            % parameter estimator (tbd)
+
+            % observer (tbd)
+
+            % compute and apply control input
+            if (graceful == true)
+                sys = sys.computeGracefulControl(i); 
+            else
+                sys = sys.computeExponentialControl(i);
+            end
+
+            % plant update
+            integrand = @(t, x) sys.plant(t, x, sys.u);
+            [t, xt] = ode45(integrand, [t0, t0 + dt], sys.x);
+            sys.x = xt(end, :);
+            sys.tHistContinuous = [sys.tHistContinuous, t'];
+
+            % site effect update
+            sys = sys.updateSiteEffect();
+
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        function [sys, tHist, tHistContinuous, xHist, EHist, uHist, ...
+                uMinHist, ceDotHist] = simulateContinuous(sys, ...
+                graceful, x0, tStart, tEnd, nTimes)
+
+            % compute discrete time interval
+            dt = (tEnd - tStart) / nTimes;
+
+            % reset history vectors
+            sys.tHist = zeros(1, nTimes);
+            sys.xHist = zeros(4, nTimes); sys.EHist = zeros(1, nTimes); 
+            sys.uHist = zeros(1, nTimes); sys.uMinHist = zeros(1, nTimes);
+            sys.ceDotHist = zeros(1, nTimes);
+
+            % set and log initial conditions
+            sys.x = x0; 
+            sys.u = 0;
+            sys.tHist(1) = tStart;
+            sys.xHist(:,1) = x0; 
+            sys.ceDotHist = sys.ke0 * (sys.x(1) - sys.x(4));
+
+            t0 = tStart;
+            for i=2:nTimes
+
+                % time step
+                sys = sys.continuousStep(i, t0, dt, graceful);
+
+                % log
+                sys.tHist(i) = sys.tHist(i-1) + dt;
+                sys.xHist(:,i) = sys.x;
+                sys.EHist(i) = sys.E;
+                sys.uHist(i) = sys.u;
+                sys.uMinHist(i) = sys.uMin;
+                sys.ceDotHist(i) = sys.ke0 * (sys.x(1) - sys.x(4));
+
+                % update t0
+                t0 = t0 + dt; 
+
+            end
+
+            tHist = sys.tHist; tHistContinuous = sys.tHistContinuous;
+            xHist = sys.xHist; EHist = sys.EHist; 
+            uHist = sys.uHist; uMinHist = sys.uMinHist;
+            ceDotHist = sys.ceDotHist;
+
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        
         function plotCharacteristicCurve(sys)
 
             sys.setPlotSettings();     
