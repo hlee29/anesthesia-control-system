@@ -47,8 +47,8 @@ clc
 observer = false;        % use observer? 
 confidence = 0.95;       % confidence level for error bounds (ellipsoid)
 P0 = 10 * eye(4);        % initial covariance estimate
-Q = 0 * eye(4);          % 4x4 process noise matrix
-R = 10^2;                % 1x1 sensor noise matrix (BIS %)
+Q = 10 * eye(4);    % 4x4 process noise matrix
+R = 25;                  % 1x1 sensor noise matrix (BIS %)
  
 
 % parameterize controllers %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -73,50 +73,44 @@ z = 1.2;                % damping ratio, must be >1 for eigenvalues < 0
 % a 70 kg adult male patient undergoing 6 different trajectories
 
 % for preliminary ceMin computation
-x0 = [0; 0; 0; 0]; xEst0 = [0; 0; 0; 0];
+x0 = [0; 0; 0; 0]; xEst0 = x0; 
 patient0 = PropofolSystem(x0, k10, k12, k13, k21, k31, ke0, V1, ...
                 BIS0, BISdes, BISmax, ce50, gamma, ...
                 xEst0, P0, Q, R, ...
                 uMax, a1, a2, delta, z, w);
 patient0.plotCharacteristicCurve(); % plot patient's Emax curve
 
-x01 = [patient0.ceMin+4; 0; 0; patient0.ceMin+2];
-xEst01 = [x01(1); x01(2); x01(3); x01(4)];
+x01 = [patient0.ceMin+4; 0; 0; patient0.ceMin+2]; xEst01 = x01;
 patient1 = PropofolSystem(x01, k10, k12, k13, k21, k31, ke0, V1, ...
                 BIS0, BISdes, BISmax, ce50, gamma, ...
                 xEst01, P0, Q, R, ...
                 uMax, a1, a2, delta, z, w);
 
-x02 = [patient0.ceMin+3; 0; 0; patient0.ceMin+2];
-xEst02 = [x02(1); x02(2); x02(3); x02(4)];
+x02 = [patient0.ceMin+3; 0; 0; patient0.ceMin+2]; xEst02 = x02; 
 patient2 = PropofolSystem(x02, k10, k12, k13, k21, k31, ke0, V1, ...
                 BIS0, BISdes, BISmax, ce50, gamma, ...
                 xEst02, P0, Q, R, ...
                 uMax, a1, a2, delta, z, w);
 
-x03 = [patient0.ceMin+1; 0; 0; patient0.ceMin+2];
-xEst03 = [x03(1); x03(2); x03(3); x03(4)];
+x03 = [patient0.ceMin+1; 0; 0; patient0.ceMin+2]; xEst03 = x03; 
 patient3 = PropofolSystem(x03, k10, k12, k13, k21, k31, ke0, V1, ...
                 BIS0, BISdes, BISmax, ce50, gamma, ...
                 xEst03, P0, Q, R, ...
                 uMax, a1, a2, delta, z, w);
 
-x04 = [patient0.ceMin; 0; 0; patient0.ceMin+2.5];
-xEst04 = [x04(1); x04(2); x04(3); x04(4)];
+x04 = [patient0.ceMin; 0; 0; patient0.ceMin+2.5]; xEst04 = x04; 
 patient4 = PropofolSystem(x04, k10, k12, k13, k21, k31, ke0, V1, ...
                 BIS0, BISdes, BISmax, ce50, gamma, ...
                 xEst04, P0, Q, R, ...
                 uMax, a1, a2, delta, z, w);
 
-x05 = [0; 0; 0; patient0.ceMin+1];
-xEst05 = [x05(1); x05(2); x05(3); x05(4)];
+x05 = [0; 0; 0; patient0.ceMin+1]; xEst05 = x05; 
 patient5 = PropofolSystem(x05, k10, k12, k13, k21, k31, ke0, V1, ...
                 BIS0, BISdes, BISmax, ce50, gamma, ...
                 xEst05, P0, Q, R, ...
                 uMax, a1, a2, delta, z, w);
 
-x06 = [0; 0; 0; patient0.ceMin+0.3];
-xEst06 = [x06(1); x06(2); x06(3); x06(4)];
+x06 = [0; 0; 0; patient0.ceMin+0.3]; xEst06 = x06; 
 patient6 = PropofolSystem(x06, k10, k12, k13, k21, k31, ke0, V1, ...
                 BIS0, BISdes, BISmax, ce50, gamma, ...
                 xEst06, P0, Q, R, ...
@@ -147,6 +141,33 @@ fprintf(['Graceful controller: omega = %.2f, zeta = %.2f, ' ...
 if clamp == true fprintf('Clamping of input is ON.\n');
 else fprintf('Clamping of input is OFF.\n'); end
 fprintf('\n');
+
+% print observer settings
+H = [0 0 0 -1 * patient0.BIS0 * patient0.gamma * ...
+                (patient0.ce50^(patient0.gamma) * ...
+                patient0.ceDes^(patient0.gamma-1)) / ...
+                (patient0.ceDes^(patient0.gamma) + ...
+                patient0.ce50^(patient0.gamma))^2];
+obs = [H ; H * patient0.A; H * patient0.A^2; H * patient0.A^3]; 
+obsRank = rank(obs);
+singVals = svd(obs);
+conditioningNum = max(singVals) / min(singVals); 
+fprintf('OBSERVER SETTINGS:\n')
+fprintf(['Rank of observability matrix around desired ' ...
+    'concentration = %d\n'], obsRank);
+fprintf('Singular value of c1 = %d, ', singVals(1));
+fprintf('singular value of c2 = %d;\n', singVals(2));
+fprintf('Singular value of c3 = %d, ', singVals(3));
+fprintf('singular value of ce = %d\n', singVals(4));
+fprintf('Conditioning number of observability matrix = %d\n', ...
+    conditioningNum);
+if observer == true 
+    fprintf('Controller and estimator are CONNECTED.\n')
+else 
+    fprintf('Controller and estimator are DISCONNECTED.\n')
+end
+fprintf('\n');
+
 
 % 1. use exponential controller %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -364,7 +385,7 @@ plot(tHist, xHist3(4,:), 'LineWidth', 2, 'Color', '#dcd62b');
 plot(tHist, xHist4(4,:), 'LineWidth', 2, 'Color', '#dda010');
 plot(tHist, xHist5(4,:), 'LineWidth', 2, 'Color', '#dd5510');
 plot(tHist, xHist6(4,:), 'LineWidth', 2, 'Color', '#980000');
-yline(patient0.ceG, 'k--', 'failsafe barrier', 'FontSize', 15);
+yline(patient0.ceG, 'k--', 'padding', 'FontSize', 15);
 yline(patient0.ceMin, 'k--', 'lower bound for surgery');
 title(['Effect site concentration trajectories in time ' ...
     '(graceful controller)']);
@@ -391,10 +412,10 @@ figure('Color', [1 1 1])
 hold on
 
 % shade h >= 0 
-fill([patient0.ceG 100 100 patient0.ceG], [-50 -50 50 50], [0.4 0.4 0.4], ...
-     'EdgeColor', 'none', 'FaceAlpha', 0.6);
 fill([patient0.ceMin 100 100 patient0.ceMin], [-50 -50 50 50], [0.7 0.7 0.7], ...
-                'EdgeColor', 'none', 'FaceAlpha', 0.6);
+                'EdgeColor', 'none', 'FaceAlpha', 0.3);
+% fill([patient0.ceG 100 100 patient0.ceG], [-50 -50 50 50], [0.4 0.4 0.4], ...
+%      'EdgeColor', 'none', 'FaceAlpha', 0.6);
 
 % shade new secondary barrier
 ceVals = linspace(-100, 100, 500);
@@ -411,7 +432,7 @@ lambda2 = patient0.w * sqrt(patient0.z^2 - 1) + patient0.z*patient0.w;
 % plot(ceVals, set1, 'k--', 'LineWidth', 1); 
 % plot(ceVals, set2, 'k--', 'LineWidth', 1); 
 xline(patient0.ceMin, 'k--', 'lower bound for surgery', 'LineWidth', 1);
-xline(patient0.ceG, 'k--', 'failsafe barrier', 'LineWidth', 1); 
+xline(patient0.ceG, 'k--', 'padding', 'LineWidth', 1); 
 yline(0, 'k', 'LineWidth', 0.5);  % hDot = 0
 
 % plot 'danger zone' (actuation limits)
@@ -439,9 +460,11 @@ plot(x06(4,1), ceDotHist6(1), 'Color','#980000', ...
     'Marker', '.', 'MarkerSize', 20);
 grid 
 
-legend('Safe set', 'Failsafe set');
+legend('Safe set');
 title('Safety phase portrait (graceful controller)')
 xlabel('Effect site concentration [ug mL⁻¹]')
 ylabel('Effect site concentration time derivative [ug mL⁻¹ min⁻¹]')
 
-%patient1.plotEstimation();
+patient1.plotEstimation(graceful, 1);
+patient2.plotEstimation(graceful, 2);
+patient5.plotEstimation(graceful, 5);

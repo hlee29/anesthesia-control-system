@@ -132,9 +132,14 @@ classdef PropofolSystem
 
             % state prediction: euler discretization
             sys.xEst = sys.xEst + (sys.A * sys.xEst + sys.B * sys.u) * dt;
+            sys.xEst = max(sys.xEst, 0);
 
             % covariance prediction
             sys.P = sys.A * sys.P * sys.A' + sys.Q; 
+            
+            % monitor eigenvalues
+            evals = eig(sys.P); 
+            % disp(evals);
 
         end
 
@@ -146,14 +151,15 @@ classdef PropofolSystem
 
             % compute jacobian wrt a priori (1x4)
             sys.H = [0 0 0 ...
-                sys.BIS0 * sys.gamma * ...
+                -1 * sys.BIS0 * sys.gamma * ...
                 (sys.ce50^(sys.gamma) * sys.xEst(4)^(sys.gamma-1)) / ...
                 (sys.xEst(4)^(sys.gamma) + sys.ce50^(sys.gamma))^2];
 
+            % diary('jacobian-output.txt');
+            % disp(sys.H);
+
             % compute output residual
-            sys.BISest = sys.BIS0 * (1 - ...
-                (sys.xEst(4))^sys.gamma/ ...
-                (sys.xEst(4)^sys.gamma + sys.ce50^sys.gamma));
+            sys.BISest = dot(sys.H, sys.xEst);
             BISerror = sys.BIS - sys.BISest;  
 
             % compute residual covariance S 
@@ -164,6 +170,7 @@ classdef PropofolSystem
 
             % update a posteriori state estimate
             sys.xEst = sys.xEst + sys.K * BISerror; 
+            sys.xEst = max(sys.xEst, 0);
 
             % update a posteriori covariance estimate
             sys.P = (eye(4) - sys.K * sys.H) * sys.P; 
@@ -415,9 +422,17 @@ classdef PropofolSystem
         % makes 2 plots: (1) estimated vs. true states over time; 
         % (2) state and output estimation residuals over time
 
-        function plotEstimation(sys)
+        function plotEstimation(sys, graceful, patient)
 
             sys.setPlotSettings(); 
+
+            % title labels
+            if graceful == true
+                gracefulString = "Graceful Control, ";
+            else 
+                gracefulString = "Exponential Control, "; 
+            end
+            patientString = "Trajectory " + patient;
     
             % plot estimated vs. true states
             figure('Color', [1 1 1]);
@@ -437,7 +452,8 @@ classdef PropofolSystem
                     'Plasma concentration true state',...
                     'Fast peripheral concentration true state',...
                     'Slow peripheral concentration true state');
-            title('EKF Estimated vs. True States')
+            title(['EKF Estimated vs. True States, ' gracefulString ...
+                patientString]);
             xlabel('Time [min]');
             ylabel('Concentration [ug mL⁻¹]')
 
@@ -453,7 +469,7 @@ classdef PropofolSystem
                 'Fast peripheral concentration error', ...
                 'Slow peripheral concentration error', ...
                 'Effect site concentration error');
-            title('EKF Residuals');
+            title(['EKF Residuals, ' gracefulString patientString]);
             xlabel('Time [min]');
             ylabel('Error in concentration [ug mL⁻¹]')
         
