@@ -8,6 +8,10 @@ clear all
 close all
 clc
 
+set(groot, 'defaultTextInterpreter', 'latex')
+set(groot, 'defaultAxesTickLabelInterpreter', 'latex')
+set(groot, 'defaultLegendInterpreter', 'latex')
+
 % parameterize plant %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % parameters are based on source: eleveld et al., "pkpd model for
@@ -22,7 +26,7 @@ clc
     V2 = 25.5 * 1000; 
     V3 = 273 * 1000; 
     % transport into/out of compartment 1 (plasma)
-    k10 = 1.79 * 1000 / V1;  % numerator [L min⁻¹] to [mL min⁻¹]
+    k10 = 1.79 * 1000 / V1;  % numerator [L min$^{-1}$] to [mL min$^{-1}$]
     k12 = 1.75 * 1000 / V2; 
     k13 = 1.11 * 1000 / V3; 
     % transport into compartment 2 (fast peripherals)
@@ -30,14 +34,14 @@ clc
     % transport into compartment 3 (slow peripherals)
     k31 = k13; % symmetric flows for now
     % rate of transport into effect site (brain)
-    ke0 = 1.24; %[1 min⁻¹]
+    ke0 = 1.24; %[1 min$^{-1}$]
     
 % pharmacodynamic parameters
 
     % baseline propofol effect with 0 infusion
     BIS0 = 93;  % [BIS %]
     % site propofol concentration at 50% effect
-    ce50 = 3.08; % [ug mL⁻¹]
+    ce50 = 3.08; % [$\mu$g mL$^{-1}$]
     % cooperativity constant (steepness of Hill function)
     gamma = 1.68; % source has 1.47 for ce > ce50 and 1.89 for ce < ce50,
                   % took average [dimensionless]
@@ -47,8 +51,8 @@ clc
 observer = false;        % use observer? 
 confidence = 0.95;       % confidence level for error bounds (ellipsoid)
 P0 = 10 * eye(4);        % initial covariance estimate
-Q = 10 * eye(4);    % 4x4 process noise matrix
-R = 25;                  % 1x1 sensor noise matrix (BIS %)
+Q = 10^(-2) * eye(4);    % 4x4 process noise matrix
+R = 100;                 % 1x1 sensor noise matrix
  
 
 % parameterize controllers %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -129,7 +133,7 @@ fprintf(['Effect site concentration dynamics eigenvalue [min]: ' ...
     '%.4f%+.4fi\n'], real(evals(4)), imag(evals(4)));
 
 % print ceMin corresponding to BISmax
-fprintf('Absolute concentration barrier ceMin [ug mL⁻¹]: %d\n', ...
+fprintf("Absolute concentration barrier ceMin [$\mu$g mL$^{-1}$]: %d\n", ...
     patient1.ceMin);
 fprintf('\n');
 
@@ -137,7 +141,7 @@ fprintf('\n');
 fprintf('CONTROLLER SETTINGS:\n')
 fprintf('Exponential controller: a1 = %.2f, a2 = %.2f', a1, a2);
 fprintf(['Graceful controller: omega = %.2f, zeta = %.2f, ' ...
-    'failsafe barrier ceG [ug mL⁻¹] = %.4f\n'], w, z, patient0.ceG);
+    'failsafe barrier ceG [$\mu$g mL$^{-1}$] = %.4f\n'], w, z, patient0.ceG);
 if clamp == true fprintf('Clamping of input is ON.\n');
 else fprintf('Clamping of input is OFF.\n'); end
 fprintf('\n');
@@ -235,7 +239,7 @@ yline(patient0.BISdes, 'k--', 'desired');
 yline(40, 'k--', 'lower bound for surgery');
 title('Bispectral index trajectories in time (exponential controller)');
 xlabel('Time [min]');
-ylabel('Bispectral index [%]');
+ylabel('Bispectral index [\%]');
 
 % plot site concentration trajectories
 figure('Color', [1 1 1])
@@ -250,7 +254,7 @@ yline(patient0.ceMin, 'k--', 'lower bound for surgery');
 title(['Effect site concentration trajectories in time ' ...
     '(exponential controller)']);
 xlabel('Time [min]');
-ylabel('Concentration [ug mL⁻¹]');
+ylabel('Concentration [$\mu$g mL$^{-1}$]');
 
 % plot inputs
 figure('Color', [1 1 1])
@@ -261,11 +265,11 @@ plot(tHist, uHist3, 'LineWidth', 2, 'Color', '#dcd62b');
 plot(tHist, uHist4, 'LineWidth', 2, 'Color', '#dda010');
 plot(tHist, uHist5, 'LineWidth', 2, 'Color', '#dd5510');
 plot(tHist, uHist6, 'LineWidth', 2, 'Color', '#980000');
-yline(40000, 'k--', 'maximum rate');
+yline(uMax, 'k--', 'maximum rate');
 title(['Infusion rate trajectories in time ' ...
     '(exponential controller)']);
 xlabel('Time [min]');
-ylabel('Infusion rate [ug/(mL * min)]');
+ylabel('Infusion rate [$\mu$g mL$^{-1}$ min$^{-1}$]');
 
 % plot phase plane       
 figure('Color', [1 1 1])
@@ -307,8 +311,8 @@ grid
 
 legend('1st-order safe set', '2nd-order safe set');
 title('Safety phase portrait (exponential controller)')
-xlabel('Effect site concentration [ug mL⁻¹]')
-ylabel('Effect site concentration time derivative [ug mL⁻¹ min⁻¹]')
+xlabel('Effect site concentration [$\mu$g mL$^{-1}$]')
+ylabel('Effect site concentration time derivative [$\mu$g mL$^{-1}$ min$^{-1}$]')
 
 % 2. simulate graceful controller %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -316,7 +320,7 @@ fprintf('RUNNING GRACEFUL CONTROLLER + EKF...\n');
 disp(patient0.ceDes);
 
 % print ceG, the failsafe barrier
-fprintf('Failsafe concentration barrier ceG [ug mL⁻¹]: %d\n', patient0.ceG);
+fprintf('Failsafe concentration barrier ceG [$\mu$g mL$^{-1}$]: %d\n', patient0.ceG);
 graceful = true; % use graceful controller 
 tStart = 0; tEnd = 60; nTimes = 600;
 % scenario 1
@@ -360,6 +364,11 @@ disp('Running scenario 6...');
     uHist6, uMinHist6, ceDotHist6,...
     BISHist6, BISEstHist6] = patient6.simulate( ...
     graceful, clamp, observer, tStart, tEnd, nTimes);
+% 
+% 
+set(groot, 'defaultAxesTickLabelInterpreter','tex');
+% set(groot, 'defaultLegendInterpreter','latex');
+% set(0,'defaulttextInterpreter','latex');
 
 % plot effect trajectories
 figure('Color', [1 1 1])
@@ -374,7 +383,7 @@ yline(patient0.BISmax, 'k--', 'upper bound for surgery');
 yline(patient0.BISdes, 'k--', 'desired');
 title('Bispectral index trajectories in time (graceful controller)');
 xlabel('Time [min]');
-ylabel('Bispectral index [%]');
+ylabel('Bispectral index [\%]');
 
 % plot site concentration trajectories
 figure('Color', [1 1 1])
@@ -390,7 +399,7 @@ yline(patient0.ceMin, 'k--', 'lower bound for surgery');
 title(['Effect site concentration trajectories in time ' ...
     '(graceful controller)']);
 xlabel('Time [min]');
-ylabel('Concentration [ug mL⁻¹]');
+ylabel('Concentration [$\mu$g mL$^{-1}$]');
 
 % plot inputs
 figure('Color', [1 1 1])
@@ -401,11 +410,11 @@ plot(tHist, uHist3, 'LineWidth', 2, 'Color', '#dcd62b');
 plot(tHist, uHist4, 'LineWidth', 2, 'Color', '#dda010');
 plot(tHist, uHist5, 'LineWidth', 2, 'Color', '#dd5510');
 plot(tHist, uHist6, 'LineWidth', 2, 'Color', '#980000');
-yline(40000, 'k--', 'maximum rate');
+yline(uMax, 'k--', 'maximum rate');
 title(['Infusion rate trajectories in time ' ...
     '(graceful controller)']);
 xlabel('Time [min]');
-ylabel('Infusion rate [ug/(mL * min)]');
+ylabel('Infusion rate [$\mu$g mL$^{-1}$ min$^{-1}$]');
 
 % plot phase plane        
 figure('Color', [1 1 1])
@@ -462,9 +471,58 @@ grid
 
 legend('Safe set');
 title('Safety phase portrait (graceful controller)')
-xlabel('Effect site concentration [ug mL⁻¹]')
-ylabel('Effect site concentration time derivative [ug mL⁻¹ min⁻¹]')
+xlabel('Effect site concentration [$\mu$g mL$^{-1}$]')
+ylabel('Effect site concentration time derivative [$\mu$g mL$^{-1}$ min$^{-1}$]')
 
-patient1.plotEstimation(graceful, 1);
-patient2.plotEstimation(graceful, 2);
-patient5.plotEstimation(graceful, 5);
+
+% plot site concentration error trajectories
+figure('Color', [1 1 1])
+hold on
+plot(tHist, xEstHist1(4,:)-xHist1(4,:), 'LineWidth', 2, 'Color', '#66da54');
+plot(tHist, xEstHist2(4,:)-xHist2(4,:), 'LineWidth', 2, 'Color', '#cada54');
+plot(tHist, xEstHist3(4,:)-xHist3(4,:), 'LineWidth', 2, 'Color', '#dcd62b');
+plot(tHist, xEstHist4(4,:)-xHist4(4,:), 'LineWidth', 2, 'Color', '#dda010');
+plot(tHist, xEstHist5(4,:)-xHist5(4,:), 'LineWidth', 2, 'Color', '#dd5510');
+plot(tHist, xEstHist6(4,:)-xHist6(4,:), 'LineWidth', 2, 'Color', '#980000');
+title('EKF residual trajectories: Effect site concentration');
+xlabel('Time [min]');
+ylabel('Concentration error [$\mu$g mL$^{-1}$]');
+
+% plot plasma eerror trajectories
+figure('Color', [1 1 1])
+hold on
+plot(tHist, xEstHist1(1,:)-xHist1(1,:), 'LineWidth', 2, 'Color', '#66da54');
+plot(tHist, xEstHist2(1,:)-xHist2(1,:), 'LineWidth', 2, 'Color', '#cada54');
+plot(tHist, xEstHist3(1,:)-xHist3(1,:), 'LineWidth', 2, 'Color', '#dcd62b');
+plot(tHist, xEstHist4(1,:)-xHist4(1,:), 'LineWidth', 2, 'Color', '#dda010');
+plot(tHist, xEstHist5(1,:)-xHist5(1,:), 'LineWidth', 2, 'Color', '#dd5510');
+plot(tHist, xEstHist6(1,:)-xHist6(1,:), 'LineWidth', 2, 'Color', '#980000');
+title('EKF residual trajectories: Plasma concentration');
+xlabel('Time [min]');
+ylabel('Concentration error [$\mu$g mL$^{-1}$]');
+
+% plot slow peripheral trajectories
+figure('Color', [1 1 1])
+hold on
+plot(tHist, xEstHist1(3,:)-xHist1(3,:), 'LineWidth', 2, 'Color', '#66da54');
+plot(tHist, xEstHist2(3,:)-xHist2(3,:), 'LineWidth', 2, 'Color', '#cada54');
+plot(tHist, xEstHist3(3,:)-xHist3(3,:), 'LineWidth', 2, 'Color', '#dcd62b');
+plot(tHist, xEstHist4(3,:)-xHist4(3,:), 'LineWidth', 2, 'Color', '#dda010');
+plot(tHist, xEstHist5(3,:)-xHist5(3,:), 'LineWidth', 2, 'Color', '#dd5510');
+plot(tHist, xEstHist6(3,:)-xHist6(3,:), 'LineWidth', 2, 'Color', '#980000');
+title('EKF residual trajectories: Slow peripherals');
+xlabel('Time [min]');
+ylabel('Concentration error [$\mu$g mL$^{-1}$]');
+
+% plot fast peripheral trajectories
+figure('Color', [1 1 1])
+hold on
+plot(tHist, xEstHist1(2,:)-xHist1(2,:), 'LineWidth', 2, 'Color', '#66da54');
+plot(tHist, xEstHist2(2,:)-xHist2(2,:), 'LineWidth', 2, 'Color', '#cada54');
+plot(tHist, xEstHist3(2,:)-xHist3(2,:), 'LineWidth', 2, 'Color', '#dcd62b');
+plot(tHist, xEstHist4(2,:)-xHist4(2,:), 'LineWidth', 2, 'Color', '#dda010');
+plot(tHist, xEstHist5(2,:)-xHist5(2,:), 'LineWidth', 2, 'Color', '#dd5510');
+plot(tHist, xEstHist6(2,:)-xHist6(2,:), 'LineWidth', 2, 'Color', '#980000');
+title('EKF residual trajectories: Fast peripherals');
+xlabel('Time [min]');
+ylabel('Concentration error [$\mu$g mL$^{-1}$]');

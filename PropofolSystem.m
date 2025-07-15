@@ -26,6 +26,7 @@ classdef PropofolSystem
         gamma;              % Hill cooperativity constant []
 
         % observer settings (extended kalman filter) 
+        xEst0; 
         xEst; BISest;       % current estimate of concentrations and BIS
         P; Q; R; S;         % estimatation error, process noise,
                             % sensor noise, and residual covariance
@@ -72,7 +73,7 @@ classdef PropofolSystem
         function sys = PropofolSystem(...
                 x0, k10, k12, k13, k21, k31, ke0, V1, ...  
                 BIS0, BISdes, BISmax, ce50, gamma, ...  
-                xEst0, P0, Q, R, ...
+                xEst0, P0, Q, R, ...% x0Lo, x0Hi, xLoEst, xHiEst, dLo, dHi, V, ...
                 uMax, a1, a2, delta, z, w)
 
             % initialize pharmacokinetic plant parameters
@@ -89,7 +90,7 @@ classdef PropofolSystem
 
             % initialize pharmacodynamic parameters
             sys.BIS0 = BIS0; sys.ce50 = ce50; sys.gamma = gamma;
-            sys = sys.computeEffect(); 
+            sys.BIS = sys.computeEffect(sys.x(4)); 
             
             % initialize general controller settings   
             sys.uMax = uMax; sys.BISdes = BISdes; sys.BISmax = BISmax;
@@ -109,7 +110,7 @@ classdef PropofolSystem
             sys.ceG = sys.ceMin + delta;
 
             % initialize observer settings
-            sys.xEst = xEst0; sys.P = P0; 
+            sys.xEst0 = xEst0; sys.xEst = xEst0; sys.P = P0; 
             sys.Q = Q; sys.R = R;
 
         end
@@ -126,7 +127,7 @@ classdef PropofolSystem
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        % extended kalman filter: a priori estimates
+        % (obsolete) extended kalman filter: a priori estimates
 
         function sys = predictEKF(sys, dt)
 
@@ -139,13 +140,14 @@ classdef PropofolSystem
             
             % monitor eigenvalues
             evals = eig(sys.P); 
-            % disp(evals);
+            %disp(evals);
+            %disp(sys.P);
 
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        % extended kalman filter: update step
+        % (obsolete) extended kalman filter: update step
 
         function sys = updateEKF(sys)
 
@@ -159,7 +161,7 @@ classdef PropofolSystem
             % disp(sys.H);
 
             % compute output residual
-            sys.BISest = dot(sys.H, sys.xEst);
+            sys.BISest = sys.computeEffect(sys.xEst(4));
             BISerror = sys.BIS - sys.BISest;  
 
             % compute residual covariance S 
@@ -177,39 +179,9 @@ classdef PropofolSystem
 
         end
         
+
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        % extended kalman filter: compute error bound based on confidence
-        % ellipsoid
-
-        function sys = computeErrorBoundEKF(sys)
-
-            % find derivative of effect site concentration wrt effect
-            deriv = sys.BIS0 * sys.gamma * ...
-                (sys.ce50^(sys.gamma) * sys.xEst(4)^(sys.gamma-1)) / ...
-                (sys.xEst(4)^(sys.gamma) + sys.ce50^(sys.gamma))^2 ;
-
-            % multiply derivative by current effect residual for
-            % approximate effect site concentration residual
-            sys.errorBound = sys.BIS / deriv; 
-
-            %fprintf("Approx. concentration residual: %.4f\n", sys.BISrrorBound);
-            
-
-            % % compute eigenvalues of estimation error covariance
-            % eigenvals = eigs(sys.P);
-            % 
-            % 
-            % % compute semi-axis lengths
-            % semiAxes = [sqrt(eigenvals(1) * sys.chiSquared); 
-            %             sqrt(eigenvals(2) * sys.chiSquared); 
-            %             sqrt(eigenvals(3) * sys.chiSquared); 
-            %             sqrt(eigenvals(4) * sys.chiSquared)];
-            % 
-            % % find major axis 
-            % sys.BISrrorBound = max(semiAxes); 
-
-        end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -298,12 +270,12 @@ classdef PropofolSystem
         % update the e-max site effect as a function of current effect site
         % concentration
 
-        function sys = computeEffect(sys)
+        function BIS = computeEffect(sys, ce)
 
             % compute current site effect
-            sys.BIS = sys.BIS0 * (1 - ...
-                (sys.x(4))^sys.gamma/ ...
-                (sys.x(4)^sys.gamma + sys.ce50^sys.gamma));
+            BIS = sys.BIS0 * (1 - ...
+                (ce^sys.gamma)/ ...
+                (ce^sys.gamma + sys.ce50^sys.gamma));
 
         end
 
@@ -330,7 +302,7 @@ classdef PropofolSystem
             [t, xt] = ode45(integrand, [t0, t0 + dt], sys.x);
             sys.x = xt(end, :);
             sys.tHistContinuous = [sys.tHistContinuous, t'];
-            sys = sys.computeEffect();
+            sys.BIS = sys.computeEffect(sys.x(4));
 
         end
 
@@ -356,10 +328,11 @@ classdef PropofolSystem
             sys.uHist = zeros(1, nTimes); sys.uMinHist = zeros(1, nTimes);
             sys.ceDotHist = zeros(1, nTimes);
 
+            
             % first logs
-            sys.x = sys.x0; sys.u = 0;
+            sys.x = sys.x0; sys.xEst = sys.xEst0; sys.u = 0;
             sys.tHist(1) = tStart;
-            sys.xHist(:,1) = sys.x; 
+            sys.xHist(:,1) = sys.x; sys.xEstHist(:,1) = sys.xEst0; 
             sys.ceDotHist(1) = dot(sys.A(4,:), sys.x);
 
             t0 = tStart;
@@ -408,10 +381,11 @@ classdef PropofolSystem
             figure('Color', [1 1 1]);
             plot(ce, ...
                 curve);
+            xline(6, 'k--', 'general upper limit');
             xlim([0 6]);
             title('Patient characteristic propofol effect curve');
-            xlabel('Effect site propofol concentration (ug/mL)')
-            ylabel('Propofol effect (BIS)')
+            xlabel('Effect site propofol concentration [$\mu$g mL$^{-1}$]')
+            ylabel('Propofol effect [$\%$]')
             ax = gca;
             ax.TitleFontSizeMultiplier = 1.5;
 
@@ -501,7 +475,7 @@ classdef PropofolSystem
 
         function setPlotSettings()
 
-            set(groot, 'defaultTextInterpreter', 'tex');
+            set(groot, 'defaultTextInterpreter', 'latex');
             set(groot, 'defaultLineLineWidth', 2);
             set(groot, 'defaultAxesLabelFontSizeMultiplier', 1.2);  
             set(groot, 'defaultAxesFontSize', 15);
