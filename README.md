@@ -1,7 +1,7 @@
 # anesthesia-control-system
 **Summer 2025**
 
-This is an NSF-funded research project done under the mentorship of Dr. Hosam Fathy and Dr. Jin-Oh Hahn at the University of Maryland. 
+This is an NSF-funded research project done under the mentorship of Dr. Hosam Fathy and Dr. Jin-Oh Hahn at the University of Maryland during my sophomore summer. 
 
 I apply a novel "graceful" control barrier function (CBF) first introduced by Yejin Moon to the problem of automatic sedation, but with two barriers in a mirrored fashion, as sedation has both safety-critical upper and lower bounds. I also apply a deterministic interval observer that provides conservative bounds to the controller.  
 
