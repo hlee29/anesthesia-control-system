@@ -8,6 +8,6 @@ This approach poses two novel benefits: (1) The CBF is designed to apply to syst
 
 The code is organized as follows: 
 - `Paper.pdf` is the paper. 
-- `IntervalObserver.m` computes the interval observer gains in the diagonalized basis once for all simulations. The results were manually copied into `PropofolSystem.m`. The interval observer, as explained in `Paper.pdf`, requires $\mathbf{A} - \mathbf{LC}$ to be both Hurwitz and Metzler. It turns out that this latter constraint is quite difficult to work around, so I implement the observer in the diagonalized basis, where it will be trivially Metzler, and transform back to conservative bounds in the original basis. 
+- `IntervalObserver.m` computes the interval observer gains in the diagonalized basis once for all simulations. The results were manually copied into `PropofolSystem.m`. The interval observer, as explained in `Paper.pdf`, requires $\mathbf{A} - \mathbf{LC}$ to be both Hurwitz and Metzler. It turns out that this latter constraint quite a numerical thorn to this system, so I implement the observer in the diagonalized basis, where it will be trivially Metzler, and transform back to conservative bounds in the original basis. 
 - `PropofolSystem.m` is a module containing functions to simulate the model, the controller, and the observer, as well as to plot results. 
 - `runPropofolSystem.m` is the master-runner that feeds parameters and settings into `PropofolSystem.m` to simulate and plot various initial conditions. 
