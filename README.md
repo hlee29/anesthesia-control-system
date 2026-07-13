@@ -1,5 +1,5 @@
 # anesthesia-control-system
-## Summer 2025
+**Summer 2025**
 
 This is an NSF-funded research project done under the mentorship of Dr. Hosam Fathy and Dr. Jin-Oh Hahn at the University of Maryland. 
 
