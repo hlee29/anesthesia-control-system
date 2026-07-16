@@ -8,8 +8,6 @@ clear all
 close all
 clc
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 % choose parameters and bounds
 % from Eleveld et al. 
 
