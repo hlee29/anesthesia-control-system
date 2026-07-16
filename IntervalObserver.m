@@ -101,8 +101,6 @@ function cost = poleBoundCost(poles, A, C, d, V, e0, tSim)
         cost = 1e6;
         return
     end
-    
-    
 
     % Let interval width W := e_hi + e_lo. Small w denotes its components. 
     % Then, in the z-coordinates, dWz/dt = DWz + 2(|Tinv*L|*V + d_hi - d_lo)
