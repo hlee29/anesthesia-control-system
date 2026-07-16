@@ -1,6 +1,9 @@
 classdef PropofolSystem
 
     % A patient modeled as a PK/PD system for surgical propofol infusion.
+    % The T-matrix is hard-coded after a one-time run of
+    % IntervalObserver.m.
+    %
     % Methods: 
     %       PropofolSystem() constructor
     %       xDot() for ode15s integrand
@@ -236,7 +239,7 @@ classdef PropofolSystem
                 dt * (real(sys.D) * sys.zHiEst + Bz * sys.u + ...
                     Lz * ceMeasured + noiseBoundZ + distBoundZ); 
 
-            % Recover x-bounds, minding positivity of concentration
+            % Recover x-bounds, clamping for nonnegative concentration
             Tpos = max(sys.T, 0); Tneg = min(sys.T, 0);
             sys.xHiEst = Tpos * sys.zHiEst + Tneg * sys.zLoEst;
             sys.xLoEst = Tpos * sys.zLoEst + Tneg * sys.zHiEst;
