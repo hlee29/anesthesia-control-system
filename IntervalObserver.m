@@ -103,8 +103,8 @@ function cost = poleBoundCost(poles, A, C, d, V, e0, tSim)
     end
 
     % Let interval width W := e_hi + e_lo. Small w denotes its components. 
-    % Then, in the z-coordinates, dWz/dt = DWz + 2(|Tinv*L|*V + d_hi - d_lo)
-    % Denote by E the last term, 2(Tinv*|L|*V + d_hi - d_lo). It is bound by 2*(distBoundZ + noiseBoundZ).
+    % Then, in the z-coordinates, dWz/dt = dWz/dt = D*Wz + E,
+    % where E = 2|Lz|V + (d_hi - d_lo) = 2(noiseBoundZ + distBoundZ)
     % Solving the ODE, we get a steady-state solution wz_ss = -E/lambda,
     % and the homogeneous solution wz_h = C*exp(lambda*t). 
     % So Wz(t) = Wz_ss(t) + Wz_h(t).
