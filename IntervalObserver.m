@@ -109,8 +109,8 @@ function cost = poleBoundCost(poles, A, C, d, V, e0, tSim)
     distBoundZ = abs(Tinv) * (d * ones(4,1));
     noiseBoundZ = abs(Lz) * V;
 
-    % Error in z-world for each state, now with a nonzero initial error:
-    % de/dt = lambda * e + w, e(0) = e0 (not necessarily 0)
+    % Error in z-world for each state (nonzero initial error e0):
+    % de/dt = lambda * e + w, e(0) = e0
     % where w = distBoundZ + noiseBoundZ
     % Particular/SS soln: de/dt = 0 --> e_ss = -w/lambda
     % Homogeneous soln: drop w, separate vars --> e_h = C*exp(lambda * t)
