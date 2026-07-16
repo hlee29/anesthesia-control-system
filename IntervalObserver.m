@@ -102,32 +102,31 @@ function cost = poleBoundCost(poles, A, C, d, V, e0, tSim)
         return
     end
     
+    
+
+    % Let interval width W := e_hi + e_lo. Small w denotes its components. 
+    % Then, in the z-coordinates, dWz/dt = DWz + 2(|Tinv*L|*V + d_hi - d_lo)
+    % Denote by E the last term, 2(Tinv*|L|*V + d_hi - d_lo). It is bound by 2*(distBoundZ + noiseBoundZ).
+    % Solving the ODE, we get a steady-state solution wz_ss = -E/lambda,
+    % and the homogeneous solution wz_h = C*exp(lambda*t). 
+    % So Wz(t) = Wz_ss(t) + Wz_h(t).
+    % We have the initial condition Wz(0) = 2e0z, so C = 2e0z - Wz_ss(t) = 2e0z + E/lambda
+    % For the final solution Wz(t) = (2e0z + E/lambda)*exp(lambda*t) - E/lambda = 
+    % = 2e0z * exp(lambda*t) + Wz_ss(1 - exp(lambda*t)).  
+    % Back to x-coordinates, Wx(t) = |T|Wz(t). 
+
     T = real(T);
     diagD = real(diagD);
     Tinv = inv(T);
     Lz = Tinv * L;
     distBoundZ = abs(Tinv) * (d * ones(4,1));
     noiseBoundZ = abs(Lz) * V;
-
-    % Error in z-world for each state (nonzero initial error e0):
-    % de/dt = lambda * e + w, e(0) = e0
-    % where w = distBoundZ + noiseBoundZ
-    % Particular/SS soln: de/dt = 0 --> e_ss = -w/lambda
-    % Homogeneous soln: drop w, separate vars --> e_h = C*exp(lambda * t)
-    % General soln: e(t) = e_ss + C*exp(lambda * t)
-    % Solve for C: e(0) = e0 --> e0 = e_ss + C --> C = e0 - e_ss
-    % --> e(t) = e_ss + (e0 - e_ss)*exp(lambda * t)
-    %          = e_ss*(1 - exp(lambda * t)) + e0*exp(lambda * t)
-    % Worst case (triangle ineq., since e0 and w are magnitude bounds,
-    % and exp(lambda*t) > 0 since lambda is real):
-    %   width(t) = |e0|*exp(lambda*t) + e_ss*(1 - exp(lambda*t))
     
     e0z = abs(Tinv) * (e0 * ones(4,1)); 
-    widthInf = (distBoundZ + noiseBoundZ) ./ (-diagD);
-    widthT = e0z .* exp(diagD * tSim) + widthInf .* (1 - exp(diagD * tSim));
-    Tpos = max(T, 0); Tneg = min(T, 0);
+    Wz_ss = 2 * (distBoundZ + noiseBoundZ) ./ (-diagD);
+    Wz_T = 2 * e0z .* exp(diagD * tSim) + Wz_ss .* (1 - exp(diagD * tSim));
 
-    % Upper interval width by end
-    xHiT = Tpos*widthT + Tneg*(-widthT);
-    cost = xHiT(3) + 0.3*sum(xHiT);
+    % Transform back
+    Wx_T = abs(T) * Wz_T
+    cost = Wx_T(3) + 0.3*sum(Wx_T); % Emphasize slow third state
 end
