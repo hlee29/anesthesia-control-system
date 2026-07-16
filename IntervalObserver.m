@@ -45,11 +45,11 @@
 % 2. PSO to search for poles that would minimize interval width by the 
 % end of th esimulation
 
-d = 0.05;                       % disturbance magnitude bound [μg mL⁻¹]
-V = 0.5;                        % sensor noise magnitude bound [μg mL⁻¹]
-e0 = 0.3;                       % initial estimation error bound [μg mL⁻¹]
+d = 0.05;                       % Disturbance magnitude bound [μg mL⁻¹]
+V = 0.5;                        % Sensor noise magnitude bound [μg mL⁻¹]
+e0 = 0.3;                       % Initial estimation error bound [μg mL⁻¹]
                                 % (matches initError in runPropofolSystem.m)
-tSim = 70;                      % simulation horizon [min]
+tEnd = 70;                      % Simulation horizon [min]
                                 % tEnd in runPropofolSystem.m
 
 lb = [-5, -5, -5, -5];
@@ -60,7 +60,7 @@ psOptions.UseParallel = false;
 psOptions.SwarmSize = 100;
 psOptions.MaxIterations = 150;
 psOptions.MaxStallIterations = 30;
-costFun = @(p) poleBoundCost(p, A, C, d, V, e0, tSim);
+costFun = @(p) poleBoundCost(p, A, C, d, V, e0, tEnd);
 bestPoles = sort(particleswarm(costFun, 4, lb, ub, psOptions));
 
 L = place(A',C',bestPoles)';
@@ -75,7 +75,7 @@ Tinv*A_LC*T
 
 % Cost function for PSO
 
-function cost = poleBoundCost(poles, A, C, d, V, e0, tSim)
+function cost = poleBoundCost(poles, A, C, d, V, e0, tEnd)
     poles = sort(poles(:)');
 
     % Enforce distinct eigenvalues
@@ -103,8 +103,8 @@ function cost = poleBoundCost(poles, A, C, d, V, e0, tSim)
     end
 
     % Let interval width W := e_hi + e_lo. Small w denotes its components. 
-    % Then, in the z-coordinates, dWz/dt = dWz/dt = D*Wz + E,
-    % where E = 2|Lz|V + (d_hi - d_lo) = 2(noiseBoundZ + distBoundZ)
+    % Then, in the z-coordinates, dWz/dt = DWz + 2(|Tinv*L|*V + d_hi - d_lo)
+    % Denote by E the last term, 2(Tinv*|L|*V + d_hi - d_lo). It is bound by 2*(distBoundZ + noiseBoundZ).
     % Solving the ODE, we get a steady-state solution wz_ss = -E/lambda,
     % and the homogeneous solution wz_h = C*exp(lambda*t). 
     % So Wz(t) = Wz_ss(t) + Wz_h(t).
@@ -122,9 +122,9 @@ function cost = poleBoundCost(poles, A, C, d, V, e0, tSim)
     
     e0z = abs(Tinv) * (e0 * ones(4,1)); 
     Wz_ss = 2 * (distBoundZ + noiseBoundZ) ./ (-diagD);
-    Wz_T = 2 * e0z .* exp(diagD * tSim) + Wz_ss .* (1 - exp(diagD * tSim));
+    Wz_T = 2 * e0z .* exp(diagD * tEnd) + Wz_ss .* (1 - exp(diagD * tEnd));
 
     % Transform back
-    Wx_T = abs(T) * Wz_T
+    Wx_T = abs(T) * Wz_T;
     cost = Wx_T(3) + 0.3*sum(Wx_T); % Emphasize slow third state
 end
